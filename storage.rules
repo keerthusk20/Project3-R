@@ -1,0 +1,396 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ─── HELPER FUNCTIONS ────────────────────────────────────────────────────
+    function getUserRole(uid) {
+      let userDoc = firestore.get(/databases/(default)/documents/users/$(uid));
+      return userDoc.exists ? userDoc.data.get('role') : null;
+    }
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function hasRole(roles) {
+      return isAuthenticated() && getUserRole(request.auth.uid) in roles;
+    }
+
+    function isStaff() {
+      return hasRole(['superadmin', 'admin', 'support']);
+    }
+
+    function isValidDocumentType() {
+      return request.resource.contentType.matches(
+        'image/.*|application/pdf|application/vnd.openxmlformats-officedocument.presentationml.presentation|application/vnd.ms-powerpoint'
+      );
+    }
+
+    function isValidDocumentTypeWithDSC() {
+      return request.resource.contentType.matches(
+        'image/.*|application/pdf|application/x-pkcs12|application/pkcs12|application/vnd.openxmlformats-officedocument.presentationml.presentation|application/vnd.ms-powerpoint'
+      );
+    }
+
+    // ─── USER PROFILE PICTURES ───────────────────────────────────────────────
+    match /profiles/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if isOwner(userId) &&
+        request.resource.size < 5 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/.*');
+    }
+
+    // ─── MSME APPLICATIONS ───────────────────────────────────────────────────
+    match /msme-applications/{userId}/{applicationId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size < 5 * 1024 * 1024 &&
+        isValidDocumentType();
+      allow delete: if isOwner(userId) || isStaff();
+    }
+
+    // ─── PAN APPLICATIONS ────────────────────────────────────────────────────
+    match /pan-applications/{userId}/{applicationId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size < 5 * 1024 * 1024 &&
+        isValidDocumentType();
+      allow delete: if isOwner(userId) || isStaff();
+    }
+
+    // ─── GST APPLICATIONS ────────────────────────────────────────────────────
+    match /gst-applications/{userId}/{applicationId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size < 5 * 1024 * 1024 &&
+        isValidDocumentTypeWithDSC();
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+
+    // ─── FSSAI APPLICATIONS ──────────────────────────────────────────────────
+    match /fssai-applications/{userId}/{applicationId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size < 5 * 1024 * 1024 &&
+        isValidDocumentType();
+      allow delete: if isOwner(userId) || isStaff();
+    }
+
+    // ─── STARTUP INDIA APPLICATIONS ──────────────────────────────────────────
+    match /startup-applications/{userId}/{applicationId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size < 5 * 1024 * 1024 &&
+        isValidDocumentType();
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+
+    // ─── TRADEMARK APPLICATIONS ──────────────────────────────────────────────
+    match /trademark-applications/{userId}/{applicationId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size < 5 * 1024 * 1024 &&
+        isValidDocumentType();
+      allow delete: if isOwner(userId) || isStaff();
+    }
+
+    // ─── DSC APPLICATIONS ────────────────────────────────────────────────────
+    match /dsc-applications/{userId}/{applicationId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size <= 10 * 1024 * 1024 &&
+        request.resource.contentType.matches(
+          'image/.*|application/pdf|application/x-pkcs12|application/pkcs12'
+        );
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+
+    // ─── INC-20A APPLICATIONS ────────────────────────────────────────────────
+    match /inc20a/{userId}/{formId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size <= 10 * 1024 * 1024 &&
+        request.resource.contentType.matches(
+          'image/.*|application/pdf|application/x-pkcs12|application/pkcs12'
+        );
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+
+    match /inc20a-applications/{userId}/{formId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size <= 10 * 1024 * 1024 &&
+        request.resource.contentType.matches(
+          'image/.*|application/pdf|application/x-pkcs12|application/pkcs12'
+        );
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+
+    // ─── INC-22A APPLICATIONS ────────────────────────────────────────────────
+    match /inc22a/{userId}/{formId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size <= 10 * 1024 * 1024;
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+
+    match /inc-22a-applications/{userId}/{formId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size <= 10 * 1024 * 1024;
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+
+    // ─── ADT-1 APPLICATIONS ──────────────────────────────────────────────────
+    match /adt1/{userId}/{formId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size <= 10 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/.*|application/pdf');
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+
+    match /adt1-applications/{userId}/{formId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size <= 10 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/.*|application/pdf');
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+
+    match /adt-1-applications/{userId}/{formId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size <= 10 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/.*|application/pdf');
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+
+    // ─── DIR-3 KYC APPLICATIONS ──────────────────────────────────────────────
+    match /dir3kyc/{userId}/{formId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size <= 2 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/.*|application/pdf');
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+
+    match /dir3kyc-applications/{userId}/{formId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size <= 2 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/.*|application/pdf');
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+
+    match /dir-3-kyc-applications/{userId}/{formId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size <= 2 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/.*|application/pdf');
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+
+    // ─── MGT-7A APPLICATIONS ─────────────────────────────────────────────────
+    match /mgt7a/{userId}/{formId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size <= 10 * 1024 * 1024 &&
+        isValidDocumentType();
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+
+    match /mgt7a-applications/{userId}/{formId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size <= 10 * 1024 * 1024 &&
+        isValidDocumentType();
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+
+    // ─── MGT-7 APPLICATIONS ──────────────────────────────────────────────────
+    match /mgt7/{userId}/{formId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size <= 10 * 1024 * 1024;
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+
+    // ─── AOC-4 APPLICATIONS ──────────────────────────────────────────────────
+    match /aoc4/{userId}/{formId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size <= 10 * 1024 * 1024;
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+
+    match /aoc4-applications/{userId}/{formId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size <= 10 * 1024 * 1024;
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+
+    // ─── SHOP & ESTABLISHMENT LICENSE APPLICATIONS ─────────────────────────────
+    match /shop-establishment-applications/{userId}/{applicationId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size < 5 * 1024 * 1024 &&
+        request.resource.contentType.matches(
+          'image/.*|application/pdf|application/vnd.openxmlformats-officedocument.spreadsheetml.sheet|application/vnd.ms-excel|text/csv'
+        );
+      allow delete: if isOwner(userId) || isStaff();
+    }
+
+
+    // ─── ROC COMPLIANCE ──────────────────────────────────────────────────────
+    match /roc-compliance-applications/{userId}/{applicationId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size <= 15 * 1024 * 1024 &&
+        isValidDocumentType();
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+
+    // ─── ROC PACKAGE (singular - legacy) ─────────────────────────────────────
+    match /roc-package/{userId}/{applicationId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size <= 15 * 1024 * 1024 &&
+        isValidDocumentType();
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+
+    // ─── ROC PACKAGES (plural - legacy) ──────────────────────────────────────
+    match /roc-packages/{userId}/{applicationId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size <= 15 * 1024 * 1024 &&
+        isValidDocumentType();
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+
+    // ─── ROC NORMAL (short path) ─────────────────────────────────────────────
+    match /roc-normal/{userId}/{applicationId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size <= 15 * 1024 * 1024;
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+
+    // ─── ROC NORMAL PACKAGES (full collection name) ───────────────────────────
+    match /roc-normal-packages/{userId}/{applicationId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size <= 15 * 1024 * 1024;
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+
+    // ─── ROC STANDARD (short path) ───────────────────────────────────────────
+    match /roc-standard/{userId}/{applicationId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size <= 15 * 1024 * 1024;
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+
+    // ─── ROC STANDARD PACKAGES (full collection name) ─────────────────────────
+    // 🔥 FIXED: Uses {allPaths=**} to allow subfolders like MSME/
+    match /roc-standard-packages/{userId}/{applicationId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size <= 15 * 1024 * 1024;
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+
+    // ─── ROC PREMIUM (short path) ────────────────────────────────────────────
+    match /roc-premium/{userId}/{applicationId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size <= 15 * 1024 * 1024;
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+
+    // ─── ROC PREMIUM PACKAGES (full collection name) ──────────────────────────
+    match /roc-premium-packages/{userId}/{applicationId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size <= 15 * 1024 * 1024;
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+
+    // ─── ROC DOCUMENTS ───────────────────────────────────────────────────────
+    match /roc-documents/{userId}/{caseId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size <= 10 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/.*|application/pdf');
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+    
+    // ─── COMPANY REGISTRATIONS ───────────────────────────────────────────────
+    match /company-registrations/{userId}/{applicationId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size <= 10 * 1024 * 1024 &&
+        isValidDocumentType();
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+
+    // ─── COMPANY APPLICATIONS (legacy) ───────────────────────────────────────
+    match /company-applications/{userId}/{rest=**} {
+      allow read, write: if request.auth != null &&
+        (request.auth.uid == userId || userId == 'anonymous');
+    }
+
+    // ─── LLP REGISTRATION ────────────────────────────────────────────────────
+    match /llp-registrations/{userId}/{applicationId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if (isOwner(userId) || isStaff()) &&
+        request.resource.size <= 10 * 1024 * 1024 &&
+        isValidDocumentType();
+      allow delete: if hasRole(['superadmin', 'admin']);
+    }
+
+    // ─── USER PROFILES / SIGNATURES ──────────────────────────────────────────
+    match /users/{userId}/{anyPath=**} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // ─── SIGNATURES (PUBLIC) ─────────────────────────────────────────────────
+    match /signatures/{sessionId} {
+      allow read, write: if true;
+    }
+
+    // ─── ATTACHMENTS (CHAT SYSTEM) ───────────────────────────────────────────
+    match /attachments/{convId}/{fileName} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ─── EXPERT DOCUMENTS ────────────────────────────────────────────────────
+match /expert_documents/{expertId}/{fileName} {
+
+  allow read: if isAuthenticated() &&
+    firestore.get(/databases/(default)/documents/users/$(expertId)).data.status == 'approved';
+
+  allow write: if isOwner(expertId) &&
+    request.resource.size <= 10 * 1024 * 1024 &&
+    request.resource.contentType.matches(
+      'image/.*|application/pdf|application/x-pkcs12|application/octet-stream'
+    );
+
+  allow delete: if isOwner(expertId) || isStaff();
+
+}
+
+    // ─── DEFAULT CATCH-ALL ───────────────────────────────────────────────────
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+  }
+}

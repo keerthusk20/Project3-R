@@ -1,0 +1,486 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ------------------------------------------------
+    // HELPER FUNCTIONS
+    // ------------------------------------------------
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid))
+        ? get(/databases/$(database)/documents/users/$(uid)).data
+        : null;
+    }
+
+    function getUserRole(uid) {
+      let data = getUserData(uid);
+      return data != null ? data.role : null;
+    }
+
+    function isStaff() {
+      return isAuthenticated() &&
+        getUserRole(request.auth.uid) in ['superadmin', 'admin', 'support'];
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() &&
+        getUserRole(request.auth.uid) in ['superadmin', 'admin'];
+    }
+
+    function isExpert() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isExpert == true;
+    }
+
+    function isParticipant(participants) {
+      return isAuthenticated() && request.auth.uid in participants;
+    }
+
+    function isServer() {
+      return isAuthenticated()
+        && request.auth.token.email != null
+        && request.auth.token.email.matches('.*gserviceaccount\\.com');
+    }
+
+    function isApplicationCollection(collectionId) {
+      return collectionId in [
+        'applications',
+        'msme-applications',
+        'pan-applications',
+        'gst-applications',
+        'gst-proprietorship-applications',
+        'gst-shop-retail-applications',
+        'fssai-applications',
+        'trademark-applications',
+        'startup-applications',
+        'dsc-applications',
+        'company-registrations',
+        'llp-registrations',
+        'company-applications',
+        'dir3kyc-applications',
+        'dir-3-kyc-applications',
+        'inc20a-applications',
+        'inc-22a-applications',
+        'adt1-applications',
+        'adt-1-applications',
+        'roc-compliance-applications',
+        'rocSubmissions',
+        'aoc4-applications',
+        'mgt7a-applications',
+        'roc-normal-packages',
+        'roc-standard-packages',
+        'roc-premium-packages'
+      ];
+    }
+
+    function supportWritableApplicationFields() {
+      return [
+        'status',
+        'statusLabel',
+        'statusUpdatedAt',
+        'statusHistory',
+        'statusTimeline',
+        'taskStatus',
+        'assignedTo',
+        'assignedBy',
+        'assignedAt',
+        'notes',
+        'updatedAt',
+        'notificationSent',
+        'dscStatus',
+        'dscIssuedDate',
+        'dscExpiryDate',
+        'dscSerialNumber'
+      ];
+    }
+
+    function canWriteApplication() {
+      return isSuperAdmin() ||
+        isServer() ||
+        (
+          getUserRole(request.auth.uid) == 'support' &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(supportWritableApplicationFields())
+        );
+    }
+
+    // ------------------------------------------------
+    // SETTINGS
+    // ------------------------------------------------
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+
+    // ------------------------------------------------
+    // COUNTERS / MAIL
+    // ------------------------------------------------
+    match /counters/{counterId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /mail/{mailId} {
+      allow read, write: if true;
+    }
+
+    // ------------------------------------------------
+    // USERS
+    // ------------------------------------------------
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == userId ||
+        isStaff() ||
+        (resource.data.isExpert == true && resource.data.status == 'active')
+      );
+
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+
+      allow update: if isAuthenticated() && (
+        (
+          request.auth.uid == userId &&
+          !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['role', 'status', 'isExpert'])
+        ) ||
+        isStaff()
+      );
+
+      allow delete: if isAuthenticated() && isStaff();
+
+      match /{allPaths=**} {
+        allow read, write: if isAuthenticated() &&
+          (request.auth.uid == userId || isStaff());
+      }
+    }
+
+    match /users {
+      allow list: if isAuthenticated() && (isStaff() || isServer());
+    }
+
+    // ------------------------------------------------
+    // EXPERT APPLICATIONS / PROFILES
+    // ------------------------------------------------
+    match /expert_applications/{applicationId} {
+      allow create: if true;
+      allow read, update, delete: if isAuthenticated() && isStaff();
+    }
+
+    match /expert_applications {
+      allow list: if isAuthenticated() && isStaff();
+    }
+
+    match /experts/{expertId} {
+      allow get: if isAuthenticated() && (
+        request.auth.uid == expertId ||
+        isStaff() ||
+        (
+          resource.data.status == 'active' &&
+          resource.data.isVerifiedExpert == true &&
+          resource.data.isActive == true &&
+          resource.data.availabilityStatus == 'Available'
+        )
+      );
+
+      allow list: if isAuthenticated();
+      allow create, update: if isAuthenticated() && isStaff();
+      allow delete: if isAuthenticated() && isSuperAdmin();
+
+      match /{allPaths=**} {
+        allow read, write: if isAuthenticated() && isStaff();
+      }
+    }
+
+    // ------------------------------------------------
+    // CONSULTATIONS / BOOKINGS
+    // ------------------------------------------------
+    match /consultationBookings/{bookingId} {
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.assignedTo == request.auth.uid ||
+        isStaff()
+      );
+
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid;
+
+      allow update: if isAuthenticated() && (
+        isStaff() ||
+        (
+          resource.data.assignedTo == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status', 'paymentStatus', 'paymentId', 'orderId',
+            'scheduledDate', 'notes', 'adminNotes', 'issues',
+            'updatedAt'
+          ])
+        )
+      );
+
+      allow delete: if isAuthenticated() && isStaff();
+    }
+
+    match /consultationBookings {
+      allow list: if isAuthenticated();
+    }
+
+    match /consultationRequests/{reqId} {
+      allow create: if isAuthenticated() &&
+        request.resource.data.customerId == request.auth.uid;
+      allow read: if isAuthenticated() && (
+        resource.data.customerId == request.auth.uid ||
+        resource.data.expertId == request.auth.uid ||
+        isStaff()
+      );
+      allow update: if isAuthenticated() && (
+        isStaff() ||
+        (isExpert() && resource.data.expertId == request.auth.uid)
+      );
+      allow delete: if isAuthenticated() && isStaff();
+    }
+
+    match /consultationRequests {
+      allow list: if isAuthenticated();
+    }
+
+    match /consultations/{consultationId} {
+      allow create: if isAuthenticated() &&
+        request.resource.data.customerId == request.auth.uid;
+
+      allow read: if isAuthenticated() && (
+        resource.data.customerId == request.auth.uid ||
+        resource.data.expertId == request.auth.uid ||
+        resource.data.assignedExpertId == request.auth.uid ||
+        isStaff()
+      );
+
+      allow update: if isAuthenticated() && (
+        isStaff() ||
+        (
+          isExpert() &&
+          (
+            resource.data.expertId == request.auth.uid ||
+            resource.data.assignedExpertId == request.auth.uid
+          ) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status', 'notes', 'scheduledTime', 'updatedAt'
+          ])
+        )
+      );
+
+      allow delete: if isAuthenticated() && isStaff();
+    }
+
+    match /consultations {
+      allow list: if isAuthenticated();
+    }
+
+    match /bookings/{bookingId} {
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.expertId == request.auth.uid ||
+        isStaff()
+      );
+      allow update, delete: if isAuthenticated() && isStaff();
+    }
+
+    match /bookings {
+      allow list: if isAuthenticated();
+    }
+
+    // ------------------------------------------------
+    // NOTIFICATIONS
+    // ------------------------------------------------
+    match /notifications/{notificationId} {
+      allow create: if isAuthenticated();
+      allow read: if isAuthenticated() && (
+        getUserRole(request.auth.uid) == 'support' ||
+        resource.data.targetUserId == request.auth.uid
+      );
+      allow update: if isAuthenticated() && (
+        isStaff() ||
+        (
+          resource.data.targetUserId == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'updatedAt'])
+        )
+      );
+      allow delete: if isAuthenticated() && isStaff();
+    }
+
+    match /notifications {
+      allow list: if isAuthenticated() && (isStaff() || isServer());
+    }
+
+    // ------------------------------------------------
+    // INVITES
+    // ------------------------------------------------
+    match /invites/{inviteId} {
+      allow get: if true;
+      allow create, update, delete: if isAuthenticated() && isSuperAdmin();
+    }
+
+    match /invites {
+      allow list: if isAuthenticated() && isSuperAdmin();
+    }
+
+    // ------------------------------------------------
+    // APPLICATION COLLECTIONS
+    // ------------------------------------------------
+    match /{collectionId}/{docId} {
+      allow create: if isApplicationCollection(collectionId) && isAuthenticated();
+
+      allow read: if isApplicationCollection(collectionId) &&
+        isAuthenticated() &&
+        (resource.data.userId == request.auth.uid || isStaff());
+
+      allow list: if isApplicationCollection(collectionId) &&
+        ((isAuthenticated() && isStaff()) || isServer());
+
+      allow update: if isApplicationCollection(collectionId) &&
+        isAuthenticated() &&
+        (
+          resource.data.userId == request.auth.uid ||
+          canWriteApplication()
+        );
+
+      allow delete: if isApplicationCollection(collectionId) &&
+        isAuthenticated() &&
+        isSuperAdmin();
+    }
+
+    // ------------------------------------------------
+    // DRAFTS
+    // ------------------------------------------------
+    match /drafts/{draftId} {
+      allow read: if isAuthenticated() && (
+        resource == null ||
+        request.auth.uid == resource.data.userId ||
+        isStaff()
+      );
+      allow write: if isAuthenticated() && (
+        request.auth.uid == request.resource.data.userId ||
+        isStaff()
+      );
+    }
+
+    match /gstFormDrafts/{draftId} {
+      allow read: if isAuthenticated() && (
+        resource == null ||
+        request.auth.uid == resource.data.userId ||
+        isStaff()
+      );
+      allow write: if isAuthenticated() && (
+        request.auth.uid == request.resource.data.userId ||
+        isStaff()
+      );
+    }
+
+    // ------------------------------------------------
+    // SIGNATURES
+    // ------------------------------------------------
+    match /signatures/{sessionId} {
+      allow create, update, get: if true;
+      allow list: if false;
+    }
+
+    // ------------------------------------------------
+    // TICKETS
+    // ------------------------------------------------
+    match /tickets/{ticketId} {
+      allow read: if isAuthenticated() && (
+        resource.data.raisedById == request.auth.uid ||
+        resource.data.assignedToId == request.auth.uid ||
+        isStaff()
+      );
+
+      allow create: if isAuthenticated() &&
+        request.resource.data.raisedById == request.auth.uid;
+
+      allow update: if isAuthenticated() && (
+        isStaff() ||
+        (
+          resource.data.raisedById == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['updates', 'updatedAt'])
+        )
+      );
+
+      allow delete: if isAuthenticated() && isStaff();
+    }
+
+    match /tickets {
+      allow list: if isAuthenticated();
+    }
+
+    // ------------------------------------------------
+    // DOCS
+    // ------------------------------------------------
+    match /docs/{docId} {
+      allow create: if isAuthenticated();
+      allow read: if isAuthenticated() &&
+        (resource.data.userId == request.auth.uid || isStaff());
+      allow update, delete: if isAuthenticated() && isStaff();
+    }
+
+    match /docs {
+      allow list: if isAuthenticated() && isStaff();
+    }
+
+    // ------------------------------------------------
+    // SUPPORT CHAT
+    // ------------------------------------------------
+    match /conversations/{convId} {
+      allow read: if isAuthenticated() &&
+        isParticipant(resource.data.participants);
+      allow create: if isAuthenticated() &&
+        request.resource.data.participants is list &&
+        request.resource.data.participants.size() == 2 &&
+        isParticipant(request.resource.data.participants);
+      allow update: if isAuthenticated() &&
+        isParticipant(resource.data.participants);
+      allow delete: if isAuthenticated() && isSuperAdmin();
+
+      match /messages/{msgId} {
+        allow read: if isAuthenticated() &&
+          isParticipant(
+            get(/databases/$(database)/documents/conversations/$(convId)).data.participants
+          );
+        allow create: if isAuthenticated() &&
+          isParticipant(
+            get(/databases/$(database)/documents/conversations/$(convId)).data.participants
+          ) &&
+          request.resource.data.senderId == request.auth.uid &&
+          request.resource.data.text is string &&
+          request.resource.data.text.size() > 0 &&
+          request.resource.data.text.size() <= 2000;
+        allow update: if isAuthenticated() &&
+          isParticipant(
+            get(/databases/$(database)/documents/conversations/$(convId)).data.participants
+          );
+        allow delete: if isAuthenticated() && (
+          request.auth.uid == resource.data.senderId ||
+          isSuperAdmin()
+        );
+      }
+    }
+
+    match /conversations {
+      allow list: if isAuthenticated();
+    }
+
+    // ------------------------------------------------
+    // DOCUMENT CHECKING
+    // ------------------------------------------------
+    match /document-checks/{checkId} {
+      allow read, write: if isAuthenticated() &&
+        getUserRole(request.auth.uid) == 'support';
+    }
+
+    match /document-checks {
+      allow list: if isAuthenticated() &&
+        getUserRole(request.auth.uid) == 'support';
+    }
+  }
+}

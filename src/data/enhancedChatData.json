@@ -1,0 +1,95 @@
+[
+  {
+    "id": 1,
+    "keywords": ["hello", "hi", "hey", "good morning", "good evening", "namaste", "vanakkam"],
+    "responses": [
+      "Hello! 👋 Welcome to RegiBIZ. I'm your AI-powered business assistant.",
+      "Hi there! How can I help you with your business registration today?",
+      "Greetings! I'm RegiBIZ Assistant, here to make your business compliance easy."
+    ],
+    "context": "greeting",
+    "priority": 1
+  },
+  {
+    "id": 2,
+    "keywords": ["gst registration", "new gst", "apply gst"],
+    "responses": [
+      "GST Registration is completely free with us! 🎉\n\nWhat we provide:\n• Free professional assistance\n• ARN generation\n• GSTIN certificate\n• HSN/SAC code selection\n\nWould you like to start your application?",
+      "Great choice! GST registration is free through RegiBIZ.\n\nQuick questions to help you:\n1. Is this for a new business?\n2. Do you have PAN and Aadhaar ready?\n3. What's your business nature?"
+    ],
+    "context": "gst_registration",
+    "priority": 1
+  },
+  {
+    "id": 3,
+    "keywords": ["company registration", "pvt ltd", "llp"],
+    "responses": [
+      "Company Registration - Pvt Ltd/LLP\n\nPackage: ₹2,999 + Govt charges\n• Includes: 2 DINs, 2 DSCs, MOA/AOA\n• Timeline: 7-12 days\n\nReady to incorporate? Let's start!"
+    ],
+    "context": "company_registration",
+    "priority": 1
+  },
+  {
+    "id": 4,
+    "keywords": ["pricing", "cost", "how much", "charges"],
+    "responses": [
+      "**Transparent Pricing - No Hidden Fees!**\n\nFree Services:\n• GST Registration\n• MSME Registration\n\nPaid Services:\n• DSC: ₹1,350\n• INC-20A: ₹299\n• DIR-3 KYC: ₹699\n• Company Inc: ₹2,999\n\nAll prices + Govt charges only!"
+    ],
+    "context": "pricing",
+    "priority": 1
+  },
+  {
+    "id": 5,
+    "keywords": ["track my application", "status", "where is my"],
+    "responses": [
+      "I can check your application status in real-time!\n\nPlease provide:\n• Application ID, or\n• Service type (GST/Company/etc)\n\nI'll fetch the latest status for you."
+    ],
+    "context": "application_tracking",
+    "priority": 1
+  },
+  {
+    "id": 6,
+    "keywords": ["document", "required", "needed", "papers"],
+    "responses": [
+      "Document requirements vary by service:\n\nGST:\n• PAN, Aadhaar\n• Address proof\n• Bank details\n\nCompany:\n• PAN, Aadhaar\n• Rent agreement\n• NOC\n\nWhich service are you applying for?"
+    ],
+    "context": "documents",
+    "priority": 1
+  },
+  {
+    "id": 7,
+    "keywords": ["timeline", "how long", "days", "processing time"],
+    "responses": [
+      "Processing Timelines:\n\nGST: 3-7 days\nMSME: 1-3 days\nCompany: 7-12 days\nDSC: 1-2 hours\n\nGovt processing may vary. We keep you updated!"
+    ],
+    "context": "timeline",
+    "priority": 1
+  },
+  {
+    "id": 8,
+    "keywords": ["benefits", "advantages", "why choose regibiz"],
+    "responses": [
+      "Why Choose RegiBIZ?\n\n✅ 5000+ businesses served\n✅ 95% approval rate\n✅ Free GST & MSME\n✅ End-to-end support\n✅ Transparent pricing\n✅ Real-time tracking\n\nJoin the satisfied business owners!"
+    ],
+    "context": "benefits",
+    "priority": 1
+  },
+  {
+    "id": 9,
+    "keywords": ["support", "help", "assistance", "customer care"],
+    "responses": [
+      "Here's how we support you:\n\n🤖 AI Assistant: 24/7 instant help\n📞 WhatsApp: +91 6364562818\n📧 Email: support@regibiz.com\n📞 Phone: Working hours 9AM-6PM\n\nWe're always here to help!"
+    ],
+    "context": "support",
+    "priority": 1
+  },
+  {
+    "id": 10,
+    "keywords": ["error", "problem", "issue", "not working", "failed"],
+    "responses": [
+      "Sorry to hear you're facing issues!\n\nCommon solutions:\n• Refresh the page\n• Check internet connection\n• Clear browser cache\n\nStill having trouble? Our support team is here to help!"
+    ],
+    "context": "error_handling",
+    "priority": 1
+  }
+]
